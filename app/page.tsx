@@ -24,6 +24,8 @@ import { hasPasswordConfigured, isAuthed } from "@/lib/auth";
 import { findWorkout, motivationMessages, warmup, workouts } from "@/lib/plan";
 import type { DashboardData, PlannedSession, StrengthLog } from "@/lib/types";
 
+export const dynamic = "force-dynamic";
+
 type PageProps = {
   searchParams?: Promise<{ error?: string }>;
 };
