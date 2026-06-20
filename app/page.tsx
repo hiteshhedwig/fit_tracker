@@ -15,13 +15,13 @@ import {
   TrendingUp,
   Utensils
 } from "lucide-react";
-import { format } from "date-fns";
 import { loginAction, logRunAction, logStrengthAction, logoutAction, saveCheckInAction, saveProfileAction, updateSessionStatusAction } from "@/app/actions";
 import { AdherenceRing, ConsistencyHeatmap, MuscleBalance, PuffinessTrend, RunTrend, StrengthTrend, WeightTrend } from "@/components/charts";
 import { adherence, generateInsights, latestWeight, streak, totalReps, weeklyRunMinutes } from "@/lib/analytics";
 import { getDashboardData, hasDatabase } from "@/lib/db";
 import { hasPasswordConfigured, isAuthed } from "@/lib/auth";
 import { findWorkout, motivationMessages, warmup, workouts } from "@/lib/plan";
+import { displayDate, getTodayKey } from "@/lib/date";
 import type { DashboardData, PlannedSession, StrengthLog } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -98,8 +98,9 @@ function LoginScreen({ error }: { error?: string }) {
 }
 
 function Dashboard({ data }: { data: DashboardData }) {
-  const today = format(new Date(), "yyyy-MM-dd");
-  const todaySession = data.sessions.find((session) => session.sessionDate === today) ?? data.sessions.find((session) => session.status === "planned");
+  const today = getTodayKey();
+  const todaySession = data.sessions.find((session) => session.sessionDate === today);
+  const nextSession = data.sessions.find((session) => session.status === "planned");
   const completion = adherence(data.sessions);
   const currentStreak = streak(data.sessions);
   const runMinutes = weeklyRunMinutes(data.runLogs);
@@ -128,7 +129,9 @@ function Dashboard({ data }: { data: DashboardData }) {
 
       <MobileDashboard
         data={data}
+        today={today}
         todaySession={todaySession}
+        nextSession={nextSession}
         completion={completion}
         currentStreak={currentStreak}
         runMinutes={runMinutes}
@@ -136,7 +139,6 @@ function Dashboard({ data }: { data: DashboardData }) {
         pushReps={pushReps}
         pullReps={pullReps}
         insights={insights}
-        message={message}
       />
 
       <div className="mx-auto hidden max-w-7xl px-4 py-6 sm:px-6 lg:block lg:px-8">
@@ -185,10 +187,10 @@ function Dashboard({ data }: { data: DashboardData }) {
         </section>
 
         <section className="mt-5 grid gap-5 xl:grid-cols-[1.1fr_0.9fr]">
-          <StrengthLogger sessions={data.sessions} logs={data.strengthLogs} />
+          <StrengthLogger sessions={data.sessions} logs={data.strengthLogs} today={today} />
           <div className="grid gap-5">
-            <RunLogger />
-            <CheckInForm />
+            <RunLogger today={today} />
+            <CheckInForm today={today} />
             <ProfileForm nickname={data.profile.nickname} />
           </div>
         </section>
@@ -220,7 +222,9 @@ function Dashboard({ data }: { data: DashboardData }) {
 
 function MobileDashboard({
   data,
+  today,
   todaySession,
+  nextSession,
   completion,
   currentStreak,
   runMinutes,
@@ -228,10 +232,11 @@ function MobileDashboard({
   pushReps,
   pullReps,
   insights,
-  message
 }: {
   data: DashboardData;
+  today: string;
   todaySession?: PlannedSession;
+  nextSession?: PlannedSession;
   completion: number;
   currentStreak: number;
   runMinutes: number;
@@ -239,21 +244,51 @@ function MobileDashboard({
   pushReps: number;
   pullReps: number;
   insights: string[];
-  message: string;
 }) {
+  const activeSession = todaySession ?? nextSession;
+  const todayWorkout = findWorkout(todaySession?.workoutKey);
+  const isRestDay = !todaySession || todaySession.sessionType === "rest" || todaySession.sessionType === "walk";
+
   return (
     <div className="mx-auto max-w-xl px-3 pb-24 pt-3 lg:hidden">
       <section id="m-today" className="card scroll-mt-20 overflow-hidden p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-clay">Today</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-clay">Today · {displayDate(today)}</p>
             <h2 className="mt-2 text-2xl font-black leading-tight text-ink">
-              {todaySession ? todaySession.title : "Recovery day"}
+              {todaySession ? todaySession.title : "No planned training"}
             </h2>
           </div>
-          <span className="rounded-md bg-moss/12 px-2 py-1 text-xs font-black text-moss">{completion}%</span>
+          <span className="rounded-md bg-moss/12 px-2 py-1 text-xs font-black uppercase text-moss">
+            {todaySession?.sessionType ?? "rest"}
+          </span>
         </div>
-        <p className="mt-3 text-sm leading-6 text-ink/68">{message}</p>
+        <p className="mt-3 text-sm leading-6 text-ink/68">
+          {todaySession ? todayPrescription(todaySession) : "Recover, walk if you want, eat enough protein, and keep the streak alive tomorrow."}
+        </p>
+        {todayWorkout ? (
+          <div className="mt-4 rounded-md border border-ink/10 bg-white/55 p-3">
+            <p className="text-xs font-black uppercase tracking-[0.12em] text-moss">{todayWorkout.focus}</p>
+            <div className="mt-3 grid gap-2">
+              {todayWorkout.exercises.slice(0, 4).map((exercise) => (
+                <div key={exercise.name} className="flex items-start justify-between gap-2 text-sm">
+                  <span className="font-bold text-ink">{exercise.name}</span>
+                  <span className="max-w-[44%] text-right text-xs leading-5 text-ink/55">{exercise.prescription}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+        {todaySession?.sessionType === "run" ? (
+          <div className="mt-4 rounded-md border border-gold/30 bg-gold/10 p-3 text-sm font-semibold leading-6 text-ink/70">
+            Easy enough to speak in short sentences. This is cardio support, not a calorie-burning mission.
+          </div>
+        ) : null}
+        {isRestDay ? (
+          <div className="mt-4 rounded-md border border-moss/20 bg-moss/10 p-3 text-sm font-semibold leading-6 text-ink/70">
+            Rest day means build back. Walk, hydrate, hit protein, and do not add random hard cardio.
+          </div>
+        ) : null}
         <div className="mt-4 grid grid-cols-4 gap-2">
           <MobileStat label="Streak" value={String(currentStreak)} />
           <MobileStat label="Run" value={`${runMinutes}m`} />
@@ -274,6 +309,14 @@ function MobileDashboard({
             </button>
           </form>
         ) : null}
+        {!todaySession && activeSession ? (
+          <p className="mt-4 rounded-md bg-white/55 p-3 text-sm font-semibold text-ink/65">
+            Next planned: {displayDate(activeSession.sessionDate)} · {activeSession.title}
+          </p>
+        ) : null}
+        <a className="btn btn-primary mt-4 w-full" href={todaySession?.sessionType === "strength" ? "#m-log" : todaySession?.sessionType === "run" ? "#m-log" : "#m-checkin"}>
+          {todaySession?.sessionType === "strength" ? "Start strength log" : todaySession?.sessionType === "run" ? "Log today's run" : "Do check-in"}
+        </a>
       </section>
 
       <nav className="sticky top-[69px] z-30 -mx-3 mt-3 border-y border-ink/10 bg-paper/90 px-3 py-2 backdrop-blur-xl">
@@ -293,13 +336,13 @@ function MobileDashboard({
 
         <MobilePanel id="m-log" title="Log Training" icon={<Dumbbell size={18} />} open>
           <div className="grid gap-3">
-            <StrengthLogger sessions={data.sessions} logs={data.strengthLogs} />
-            <RunLogger />
+            <StrengthLogger sessions={data.sessions} logs={data.strengthLogs} today={today} />
+            <RunLogger today={today} />
           </div>
         </MobilePanel>
 
         <MobilePanel id="m-checkin" title="Check-In" icon={<HeartPulse size={18} />}>
-          <CheckInForm />
+          <CheckInForm today={today} />
         </MobilePanel>
 
         <MobilePanel id="m-insights" title="Insights" icon={<Sparkles size={18} />}>
@@ -470,8 +513,16 @@ function Insights({ insights }: { insights: string[] }) {
   );
 }
 
-function StrengthLogger({ sessions, logs }: { sessions: PlannedSession[]; logs: StrengthLog[] }) {
-  const nextStrength = sessions.find((session) => session.sessionType === "strength" && session.status !== "completed") ?? sessions.find((session) => session.workoutKey);
+function todayPrescription(session: PlannedSession) {
+  if (session.sessionType === "strength") return "Strength first. Log clean sets, keep rest controlled, and aim for one small progression.";
+  if (session.sessionType === "run") return "Run easy. Keep it controlled so it supports health without stealing muscle gain.";
+  if (session.sessionType === "walk") return "Rest or walk. Recovery is part of the lean-gain plan.";
+  return "Rest. Eat enough, sleep well, and let the work adapt.";
+}
+
+function StrengthLogger({ sessions, logs, today }: { sessions: PlannedSession[]; logs: StrengthLog[]; today: string }) {
+  const todayStrength = sessions.find((session) => session.sessionDate === today && session.sessionType === "strength");
+  const nextStrength = todayStrength ?? sessions.find((session) => session.sessionType === "strength" && session.status !== "completed") ?? sessions.find((session) => session.workoutKey);
   const workout = findWorkout(nextStrength?.workoutKey) ?? workouts[0];
   const previous = logs.filter((log) => log.workoutKey === workout.key).slice(-6);
 
@@ -495,7 +546,7 @@ function StrengthLogger({ sessions, logs }: { sessions: PlannedSession[]; logs: 
         <input type="hidden" name="workoutKey" value={workout.key} />
         <label className="text-sm font-bold text-ink/70">
           Date
-          <input className="field mt-1" name="sessionDate" type="date" defaultValue={nextStrength?.sessionDate ?? format(new Date(), "yyyy-MM-dd")} />
+          <input className="field mt-1" name="sessionDate" type="date" defaultValue={nextStrength?.sessionDate ?? today} />
         </label>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="text-sm font-bold text-ink/70">
@@ -542,7 +593,7 @@ function StrengthLogger({ sessions, logs }: { sessions: PlannedSession[]; logs: 
   );
 }
 
-function RunLogger() {
+function RunLogger({ today }: { today: string }) {
   return (
     <section className="card p-5 sm:p-6">
       <div className="mb-4 flex items-center justify-between">
@@ -550,7 +601,7 @@ function RunLogger() {
         <Route className="text-gold" />
       </div>
       <form action={logRunAction} className="grid gap-3">
-        <input className="field" name="runDate" type="date" defaultValue={format(new Date(), "yyyy-MM-dd")} />
+        <input className="field" name="runDate" type="date" defaultValue={today} />
         <div className="grid grid-cols-3 gap-3">
           <NumberField label="Minutes" name="durationMinutes" defaultValue="20" />
           <NumberField label="Km" name="distanceKm" step="0.01" />
@@ -566,7 +617,7 @@ function RunLogger() {
   );
 }
 
-function CheckInForm() {
+function CheckInForm({ today }: { today: string }) {
   return (
     <section className="card p-5 sm:p-6">
       <div className="mb-4 flex items-center justify-between">
@@ -574,7 +625,7 @@ function CheckInForm() {
         <HeartPulse className="text-clay" />
       </div>
       <form action={saveCheckInAction} className="grid gap-3">
-        <input className="field" name="checkinDate" type="date" defaultValue={format(new Date(), "yyyy-MM-dd")} />
+        <input className="field" name="checkinDate" type="date" defaultValue={today} />
         <div className="grid grid-cols-2 gap-3">
           <NumberField label="Weight kg" name="bodyweightKg" step="0.1" />
           <NumberField label="Puffiness 1-5" name="facePuffiness" min="1" max="5" />

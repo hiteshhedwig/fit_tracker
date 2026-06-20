@@ -1,5 +1,6 @@
 import { neon } from "@neondatabase/serverless";
-import { endOfWeek, format, startOfWeek } from "date-fns";
+import { format } from "date-fns";
+import { addDaysToKey, getTodayKey, mondayForDateKey } from "@/lib/date";
 import { defaultWeek } from "@/lib/plan";
 import type { CheckIn, DashboardData, PlannedSession, RunLog, StrengthLog } from "@/lib/types";
 
@@ -107,7 +108,7 @@ export async function ensureSchema() {
 
 export async function seedCurrentWeek() {
   const sql = sqlClient();
-  const week = defaultWeek();
+  const week = defaultWeek(getTodayKey());
 
   for (const session of week) {
     await sql`
@@ -123,8 +124,8 @@ export async function getDashboardData(): Promise<DashboardData> {
   await seedCurrentWeek();
 
   const sql = sqlClient();
-  const start = format(startOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
-  const end = format(endOfWeek(new Date(), { weekStartsOn: 1 }), "yyyy-MM-dd");
+  const start = mondayForDateKey(getTodayKey());
+  const end = addDaysToKey(start, 6);
 
   const [profile] = await sql`
     SELECT nickname, goal FROM app_profile WHERE id = 1

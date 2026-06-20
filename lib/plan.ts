@@ -1,4 +1,4 @@
-import { addDays, format, startOfWeek } from "date-fns";
+import { addDaysToKey, getTodayKey, mondayForDateKey } from "@/lib/date";
 
 export type ExerciseDefinition = {
   name: string;
@@ -163,16 +163,16 @@ export const motivationMessages = [
   "Today is about completing the plan, not proving a point."
 ];
 
-export function defaultWeek(anchor = new Date()) {
-  const monday = startOfWeek(anchor, { weekStartsOn: 1 });
+export function defaultWeek(anchor = getTodayKey()) {
+  const monday = mondayForDateKey(anchor);
   return [
-    { date: format(monday, "yyyy-MM-dd"), type: "strength", title: "Strength Workout A", workoutKey: "A" },
-    { date: format(addDays(monday, 1), "yyyy-MM-dd"), type: "run", title: "Run 20 minutes", workoutKey: null },
-    { date: format(addDays(monday, 2), "yyyy-MM-dd"), type: "strength", title: "Strength Workout B", workoutKey: "B" },
-    { date: format(addDays(monday, 3), "yyyy-MM-dd"), type: "walk", title: "Rest or walk", workoutKey: null },
-    { date: format(addDays(monday, 4), "yyyy-MM-dd"), type: "strength", title: "Strength Workout C", workoutKey: "C" },
-    { date: format(addDays(monday, 5), "yyyy-MM-dd"), type: "run", title: "Run 20-25 minutes easy", workoutKey: null },
-    { date: format(addDays(monday, 6), "yyyy-MM-dd"), type: "rest", title: "Rest", workoutKey: null }
+    { date: monday, type: "strength", title: "Strength Workout A", workoutKey: "A" },
+    { date: addDaysToKey(monday, 1), type: "run", title: "Run 20 minutes", workoutKey: null },
+    { date: addDaysToKey(monday, 2), type: "strength", title: "Strength Workout B", workoutKey: "B" },
+    { date: addDaysToKey(monday, 3), type: "walk", title: "Rest or walk", workoutKey: null },
+    { date: addDaysToKey(monday, 4), type: "strength", title: "Strength Workout C", workoutKey: "C" },
+    { date: addDaysToKey(monday, 5), type: "run", title: "Run 20-25 minutes easy", workoutKey: null },
+    { date: addDaysToKey(monday, 6), type: "rest", title: "Rest", workoutKey: null }
   ] as const;
 }
 
