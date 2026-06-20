@@ -4,6 +4,7 @@
 
 :root {
   color-scheme: light;
+  scroll-behavior: smooth;
 }
 
 * {
@@ -82,4 +83,35 @@ textarea {
   background: rgba(255, 250, 240, 0.72);
   box-shadow: 0 20px 60px rgba(24, 24, 24, 0.08);
   backdrop-filter: blur(14px);
+}
+
+details > summary::-webkit-details-marker {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  body {
+    background:
+      linear-gradient(180deg, rgba(247, 244, 238, 0.98) 0%, rgba(239, 232, 220, 0.96) 100%);
+  }
+
+  .field {
+    min-height: 46px;
+    font-size: 16px;
+    padding: 0.72rem;
+  }
+
+  textarea.field {
+    min-height: 82px;
+  }
+
+  .btn {
+    min-height: 44px;
+    padding-left: 0.72rem;
+    padding-right: 0.72rem;
+  }
+
+  .card {
+    box-shadow: 0 8px 28px rgba(24, 24, 24, 0.07);
+  }
 }
