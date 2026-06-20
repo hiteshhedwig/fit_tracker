@@ -6,6 +6,18 @@ import { z } from "zod";
 import { clearSession, createSession, verifyPassword } from "@/lib/auth";
 import { query } from "@/lib/db";
 
+export type ActionState = {
+  ok: boolean;
+  message: string;
+  intent?: string;
+};
+
+const initialState: ActionState = { ok: false, message: "" };
+
+function resolveFormData(stateOrFormData: FormData | ActionState, maybeFormData?: FormData) {
+  return maybeFormData ?? (stateOrFormData instanceof FormData ? stateOrFormData : new FormData());
+}
+
 function text(formData: FormData, key: string) {
   const value = formData.get(key);
   return typeof value === "string" ? value.trim() : "";
@@ -31,7 +43,8 @@ export async function logoutAction() {
   redirect("/");
 }
 
-export async function saveProfileAction(formData: FormData) {
+export async function saveProfileAction(stateOrFormData: FormData | ActionState = initialState, maybeFormData?: FormData): Promise<ActionState> {
+  const formData = resolveFormData(stateOrFormData, maybeFormData);
   const sql = await query();
   const nickname = text(formData, "nickname") || "You";
   const bodyweight = numberOrNull(formData, "bodyweightKg");
@@ -47,9 +60,11 @@ export async function saveProfileAction(formData: FormData) {
   `;
 
   revalidatePath("/");
+  return { ok: true, message: "Profile saved.", intent: "profile" };
 }
 
-export async function updateSessionStatusAction(formData: FormData) {
+export async function updateSessionStatusAction(stateOrFormData: FormData | ActionState = initialState, maybeFormData?: FormData): Promise<ActionState> {
+  const formData = resolveFormData(stateOrFormData, maybeFormData);
   const sql = await query();
   const id = z.coerce.number().parse(formData.get("sessionId"));
   const status = z.enum(["planned", "completed", "skipped", "moved", "modified"]).parse(formData.get("status"));
@@ -61,9 +76,11 @@ export async function updateSessionStatusAction(formData: FormData) {
   `;
 
   revalidatePath("/");
+  return { ok: true, message: `Session marked ${status}.`, intent: "session" };
 }
 
-export async function logStrengthAction(formData: FormData) {
+export async function logStrengthAction(stateOrFormData: FormData | ActionState = initialState, maybeFormData?: FormData): Promise<ActionState> {
+  const formData = resolveFormData(stateOrFormData, maybeFormData);
   const sql = await query();
   const sessionDate = text(formData, "sessionDate");
   const workoutKey = text(formData, "workoutKey");
@@ -98,9 +115,12 @@ export async function logStrengthAction(formData: FormData) {
   `;
 
   revalidatePath("/");
+  const value = reps ? `${reps} reps` : seconds ? `${seconds} sec` : "set";
+  return { ok: true, message: `${exerciseName} set ${setNumber} saved: ${value}.`, intent: "strength" };
 }
 
-export async function logRunAction(formData: FormData) {
+export async function logRunAction(stateOrFormData: FormData | ActionState = initialState, maybeFormData?: FormData): Promise<ActionState> {
+  const formData = resolveFormData(stateOrFormData, maybeFormData);
   const sql = await query();
   const runDate = text(formData, "runDate");
   const durationMinutes = z.coerce.number().min(1).parse(formData.get("durationMinutes"));
@@ -120,9 +140,11 @@ export async function logRunAction(formData: FormData) {
   `;
 
   revalidatePath("/");
+  return { ok: true, message: `Run saved: ${durationMinutes} minutes.`, intent: "run" };
 }
 
-export async function saveCheckInAction(formData: FormData) {
+export async function saveCheckInAction(stateOrFormData: FormData | ActionState = initialState, maybeFormData?: FormData): Promise<ActionState> {
+  const formData = resolveFormData(stateOrFormData, maybeFormData);
   const sql = await query();
   const checkinDate = text(formData, "checkinDate");
   const bodyweightKg = numberOrNull(formData, "bodyweightKg");
@@ -162,4 +184,5 @@ export async function saveCheckInAction(formData: FormData) {
   `;
 
   revalidatePath("/");
+  return { ok: true, message: "Check-in saved.", intent: "checkin" };
 }

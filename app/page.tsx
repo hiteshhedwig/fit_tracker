@@ -17,14 +17,21 @@ import {
 } from "lucide-react";
 import { loginAction, logRunAction, logStrengthAction, logoutAction, saveCheckInAction, saveProfileAction, updateSessionStatusAction } from "@/app/actions";
 import { AdherenceRing, ConsistencyHeatmap, MuscleBalance, PuffinessTrend, RunTrend, StrengthTrend, WeightTrend } from "@/components/charts";
+import { MobileApp } from "@/components/mobile-app";
 import { adherence, generateInsights, latestWeight, streak, totalReps, weeklyRunMinutes } from "@/lib/analytics";
 import { getDashboardData, hasDatabase } from "@/lib/db";
 import { hasPasswordConfigured, isAuthed } from "@/lib/auth";
 import { findWorkout, motivationMessages, warmup, workouts } from "@/lib/plan";
-import { displayDate, getTodayKey } from "@/lib/date";
+import { getTodayKey } from "@/lib/date";
 import type { DashboardData, PlannedSession, StrengthLog } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+const updateSessionStatusFormAction = updateSessionStatusAction as unknown as (formData: FormData) => Promise<void>;
+const logStrengthFormAction = logStrengthAction as unknown as (formData: FormData) => Promise<void>;
+const logRunFormAction = logRunAction as unknown as (formData: FormData) => Promise<void>;
+const saveCheckInFormAction = saveCheckInAction as unknown as (formData: FormData) => Promise<void>;
+const saveProfileFormAction = saveProfileAction as unknown as (formData: FormData) => Promise<void>;
 
 type PageProps = {
   searchParams?: Promise<{ error?: string }>;
@@ -127,7 +134,7 @@ function Dashboard({ data }: { data: DashboardData }) {
         </div>
       </header>
 
-      <MobileDashboard
+      <MobileApp
         data={data}
         today={today}
         todaySession={todaySession}
@@ -220,234 +227,6 @@ function Dashboard({ data }: { data: DashboardData }) {
   );
 }
 
-function MobileDashboard({
-  data,
-  today,
-  todaySession,
-  nextSession,
-  completion,
-  currentStreak,
-  runMinutes,
-  bodyweight,
-  pushReps,
-  pullReps,
-  insights,
-}: {
-  data: DashboardData;
-  today: string;
-  todaySession?: PlannedSession;
-  nextSession?: PlannedSession;
-  completion: number;
-  currentStreak: number;
-  runMinutes: number;
-  bodyweight: number | null;
-  pushReps: number;
-  pullReps: number;
-  insights: string[];
-}) {
-  const activeSession = todaySession ?? nextSession;
-  const todayWorkout = findWorkout(todaySession?.workoutKey);
-  const isRestDay = !todaySession || todaySession.sessionType === "rest" || todaySession.sessionType === "walk";
-
-  return (
-    <div className="mx-auto max-w-xl px-3 pb-24 pt-3 lg:hidden">
-      <section id="m-today" className="card scroll-mt-20 overflow-hidden p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-clay">Today · {displayDate(today)}</p>
-            <h2 className="mt-2 text-2xl font-black leading-tight text-ink">
-              {todaySession ? todaySession.title : "No planned training"}
-            </h2>
-          </div>
-          <span className="rounded-md bg-moss/12 px-2 py-1 text-xs font-black uppercase text-moss">
-            {todaySession?.sessionType ?? "rest"}
-          </span>
-        </div>
-        <p className="mt-3 text-sm leading-6 text-ink/68">
-          {todaySession ? todayPrescription(todaySession) : "Recover, walk if you want, eat enough protein, and keep the streak alive tomorrow."}
-        </p>
-        {todayWorkout ? (
-          <div className="mt-4 rounded-md border border-ink/10 bg-white/55 p-3">
-            <p className="text-xs font-black uppercase tracking-[0.12em] text-moss">{todayWorkout.focus}</p>
-            <div className="mt-3 grid gap-2">
-              {todayWorkout.exercises.slice(0, 4).map((exercise) => (
-                <div key={exercise.name} className="flex items-start justify-between gap-2 text-sm">
-                  <span className="font-bold text-ink">{exercise.name}</span>
-                  <span className="max-w-[44%] text-right text-xs leading-5 text-ink/55">{exercise.prescription}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : null}
-        {todaySession?.sessionType === "run" ? (
-          <div className="mt-4 rounded-md border border-gold/30 bg-gold/10 p-3 text-sm font-semibold leading-6 text-ink/70">
-            Easy enough to speak in short sentences. This is cardio support, not a calorie-burning mission.
-          </div>
-        ) : null}
-        {isRestDay ? (
-          <div className="mt-4 rounded-md border border-moss/20 bg-moss/10 p-3 text-sm font-semibold leading-6 text-ink/70">
-            Rest day means build back. Walk, hydrate, hit protein, and do not add random hard cardio.
-          </div>
-        ) : null}
-        <div className="mt-4 grid grid-cols-4 gap-2">
-          <MobileStat label="Streak" value={String(currentStreak)} />
-          <MobileStat label="Run" value={`${runMinutes}m`} />
-          <MobileStat label="Push" value={String(pushReps)} />
-          <MobileStat label="Pull" value={String(pullReps)} />
-        </div>
-        {todaySession ? (
-          <form action={updateSessionStatusAction} className="mt-4 grid grid-cols-3 gap-2">
-            <input type="hidden" name="sessionId" value={todaySession.id} />
-            <button className="btn btn-primary text-xs" name="status" value="completed">
-              Done
-            </button>
-            <button className="btn btn-secondary text-xs" name="status" value="modified">
-              Modified
-            </button>
-            <button className="btn btn-secondary text-xs" name="status" value="skipped">
-              Skip
-            </button>
-          </form>
-        ) : null}
-        {!todaySession && activeSession ? (
-          <p className="mt-4 rounded-md bg-white/55 p-3 text-sm font-semibold text-ink/65">
-            Next planned: {displayDate(activeSession.sessionDate)} · {activeSession.title}
-          </p>
-        ) : null}
-        <a className="btn btn-primary mt-4 w-full" href={todaySession?.sessionType === "strength" ? "#m-log" : todaySession?.sessionType === "run" ? "#m-log" : "#m-checkin"}>
-          {todaySession?.sessionType === "strength" ? "Start strength log" : todaySession?.sessionType === "run" ? "Log today's run" : "Do check-in"}
-        </a>
-      </section>
-
-      <nav className="sticky top-[69px] z-30 -mx-3 mt-3 border-y border-ink/10 bg-paper/90 px-3 py-2 backdrop-blur-xl">
-        <div className="grid grid-cols-5 gap-2 text-center text-[11px] font-black text-ink/65">
-          <a className="rounded-md bg-white/70 px-2 py-2" href="#m-today">Today</a>
-          <a className="rounded-md bg-white/70 px-2 py-2" href="#m-plan">Plan</a>
-          <a className="rounded-md bg-white/70 px-2 py-2" href="#m-log">Log</a>
-          <a className="rounded-md bg-white/70 px-2 py-2" href="#m-checkin">Check</a>
-          <a className="rounded-md bg-white/70 px-2 py-2" href="#m-progress">Stats</a>
-        </div>
-      </nav>
-
-      <div className="mt-3 grid gap-3">
-        <MobilePanel id="m-plan" title="Weekly Plan" icon={<CalendarDays size={18} />} open>
-          <MobilePlan sessions={data.sessions} />
-        </MobilePanel>
-
-        <MobilePanel id="m-log" title="Log Training" icon={<Dumbbell size={18} />} open>
-          <div className="grid gap-3">
-            <StrengthLogger sessions={data.sessions} logs={data.strengthLogs} today={today} />
-            <RunLogger today={today} />
-          </div>
-        </MobilePanel>
-
-        <MobilePanel id="m-checkin" title="Check-In" icon={<HeartPulse size={18} />}>
-          <CheckInForm today={today} />
-        </MobilePanel>
-
-        <MobilePanel id="m-insights" title="Insights" icon={<Sparkles size={18} />}>
-          <Insights insights={insights} />
-        </MobilePanel>
-
-        <MobilePanel id="m-progress" title="Progress" icon={<TrendingUp size={18} />}>
-          <div className="grid gap-3">
-            <div className="grid grid-cols-2 gap-2">
-              <MobileStat label="Adherence" value={`${completion}%`} />
-              <MobileStat label="Weight" value={bodyweight ? `${bodyweight}kg` : "--"} />
-            </div>
-            <ChartCard title="Strength" icon={<Dumbbell size={18} />}>
-              <StrengthTrend logs={data.strengthLogs} />
-            </ChartCard>
-            <ChartCard title="Weight" icon={<TrendingUp size={18} />}>
-              <WeightTrend checkIns={data.checkIns} />
-            </ChartCard>
-            <ChartCard title="Running" icon={<Route size={18} />}>
-              <RunTrend runs={data.runLogs} />
-            </ChartCard>
-            <ChartCard title="Puffiness" icon={<HeartPulse size={18} />}>
-              <PuffinessTrend checkIns={data.checkIns} />
-            </ChartCard>
-          </div>
-        </MobilePanel>
-
-        <MobilePanel id="m-setup" title="Setup" icon={<Shield size={18} />}>
-          <ProfileForm nickname={data.profile.nickname} />
-        </MobilePanel>
-      </div>
-
-      <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-ink/10 bg-bone/95 px-3 pb-[calc(env(safe-area-inset-bottom)+0.55rem)] pt-2 shadow-soft backdrop-blur-xl">
-        <div className="mx-auto grid max-w-xl grid-cols-5 gap-1 text-center text-[10px] font-black text-ink/65">
-          <a className="rounded-md px-2 py-2" href="#m-today"><Activity className="mx-auto mb-1" size={17} />Today</a>
-          <a className="rounded-md px-2 py-2" href="#m-plan"><CalendarDays className="mx-auto mb-1" size={17} />Plan</a>
-          <a className="rounded-md px-2 py-2" href="#m-log"><Dumbbell className="mx-auto mb-1" size={17} />Log</a>
-          <a className="rounded-md px-2 py-2" href="#m-checkin"><HeartPulse className="mx-auto mb-1" size={17} />Check</a>
-          <a className="rounded-md px-2 py-2" href="#m-progress"><TrendingUp className="mx-auto mb-1" size={17} />Stats</a>
-        </div>
-      </nav>
-    </div>
-  );
-}
-
-function MobilePanel({
-  id,
-  title,
-  icon,
-  children,
-  open = false
-}: {
-  id: string;
-  title: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-  open?: boolean;
-}) {
-  return (
-    <details id={id} className="card scroll-mt-32 overflow-hidden" open={open}>
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4">
-        <span className="flex items-center gap-2 text-base font-black text-ink">
-          <span className="text-moss">{icon}</span>
-          {title}
-        </span>
-        <span className="text-xl font-black text-ink/45">+</span>
-      </summary>
-      <div className="border-t border-ink/10 p-3">{children}</div>
-    </details>
-  );
-}
-
-function MobileStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-md border border-ink/10 bg-white/60 p-2 text-center">
-      <p className="truncate text-[10px] font-bold uppercase tracking-[0.08em] text-ink/45">{label}</p>
-      <p className="mt-1 truncate text-base font-black text-ink">{value}</p>
-    </div>
-  );
-}
-
-function MobilePlan({ sessions }: { sessions: PlannedSession[] }) {
-  return (
-    <div className="grid gap-2">
-      {sessions.map((session) => (
-        <div key={session.id} className="rounded-md border border-ink/10 bg-white/55 p-3">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="truncate text-sm font-black text-ink">{session.title}</p>
-              <p className="mt-1 text-xs text-ink/50">{session.sessionDate.slice(5)} · {session.status}</p>
-            </div>
-            <span className="rounded-md bg-ink/5 px-2 py-1 text-[10px] font-black uppercase text-ink/55">{session.sessionType}</span>
-          </div>
-          <form action={updateSessionStatusAction} className="mt-3 grid grid-cols-3 gap-2">
-            <input type="hidden" name="sessionId" value={session.id} />
-            <button className="btn btn-secondary min-h-9 text-xs" name="status" value="completed">Done</button>
-            <button className="btn btn-secondary min-h-9 text-xs" name="status" value="modified">Mod</button>
-            <button className="btn btn-secondary min-h-9 text-xs" name="status" value="skipped">Skip</button>
-          </form>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function Metric({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
   return (
     <div className="card p-4 shadow-none">
@@ -477,7 +256,7 @@ function Planner({ sessions }: { sessions: PlannedSession[] }) {
                 {session.sessionDate} · {session.sessionType} · {session.status}
               </p>
             </div>
-            <form action={updateSessionStatusAction} className="flex gap-2 overflow-x-auto">
+            <form action={updateSessionStatusFormAction} className="flex gap-2 overflow-x-auto">
               <input type="hidden" name="sessionId" value={session.id} />
               {["completed", "skipped", "modified"].map((status) => (
                 <button key={status} className="btn btn-secondary min-w-fit text-xs" name="status" value={status}>
@@ -513,13 +292,6 @@ function Insights({ insights }: { insights: string[] }) {
   );
 }
 
-function todayPrescription(session: PlannedSession) {
-  if (session.sessionType === "strength") return "Strength first. Log clean sets, keep rest controlled, and aim for one small progression.";
-  if (session.sessionType === "run") return "Run easy. Keep it controlled so it supports health without stealing muscle gain.";
-  if (session.sessionType === "walk") return "Rest or walk. Recovery is part of the lean-gain plan.";
-  return "Rest. Eat enough, sleep well, and let the work adapt.";
-}
-
 function StrengthLogger({ sessions, logs, today }: { sessions: PlannedSession[]; logs: StrengthLog[]; today: string }) {
   const todayStrength = sessions.find((session) => session.sessionDate === today && session.sessionType === "strength");
   const nextStrength = todayStrength ?? sessions.find((session) => session.sessionType === "strength" && session.status !== "completed") ?? sessions.find((session) => session.workoutKey);
@@ -542,7 +314,7 @@ function StrengthLogger({ sessions, logs, today }: { sessions: PlannedSession[];
         ))}
       </div>
 
-      <form action={logStrengthAction} className="grid gap-3">
+      <form action={logStrengthFormAction} className="grid gap-3">
         <input type="hidden" name="workoutKey" value={workout.key} />
         <label className="text-sm font-bold text-ink/70">
           Date
@@ -600,7 +372,7 @@ function RunLogger({ today }: { today: string }) {
         <h2 className="text-xl font-black text-ink">Run log</h2>
         <Route className="text-gold" />
       </div>
-      <form action={logRunAction} className="grid gap-3">
+      <form action={logRunFormAction} className="grid gap-3">
         <input className="field" name="runDate" type="date" defaultValue={today} />
         <div className="grid grid-cols-3 gap-3">
           <NumberField label="Minutes" name="durationMinutes" defaultValue="20" />
@@ -624,7 +396,7 @@ function CheckInForm({ today }: { today: string }) {
         <h2 className="text-xl font-black text-ink">Daily check-in</h2>
         <HeartPulse className="text-clay" />
       </div>
-      <form action={saveCheckInAction} className="grid gap-3">
+      <form action={saveCheckInFormAction} className="grid gap-3">
         <input className="field" name="checkinDate" type="date" defaultValue={today} />
         <div className="grid grid-cols-2 gap-3">
           <NumberField label="Weight kg" name="bodyweightKg" step="0.1" />
@@ -654,7 +426,7 @@ function ProfileForm({ nickname }: { nickname: string }) {
   return (
     <section className="card p-5 sm:p-6">
       <h2 className="mb-4 text-xl font-black text-ink">Setup</h2>
-      <form action={saveProfileAction} className="grid gap-3">
+      <form action={saveProfileFormAction} className="grid gap-3">
         <input className="field" name="nickname" placeholder="Nickname" defaultValue={nickname} />
         <input className="field" name="bodyweightKg" type="number" step="0.1" placeholder="Current bodyweight kg" />
         <select className="field" name="preferredPlan" defaultValue="standard">
