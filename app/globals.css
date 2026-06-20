@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at 20% 0%, rgba(212, 167, 63, 0.16), transparent 34%),
+    linear-gradient(135deg, #f7f4ee 0%, #efe8dc 42%, #f9f6ef 100%);
+  color: #151515;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+input,
+select,
+textarea {
+  min-width: 0;
+}
+
+.field {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid rgba(21, 21, 21, 0.14);
+  background: rgba(255, 250, 240, 0.82);
+  padding: 0.72rem 0.8rem;
+  color: #151515;
+  outline: none;
+}
+
+.field:focus {
+  border-color: #486047;
+  box-shadow: 0 0 0 3px rgba(72, 96, 71, 0.14);
+}
+
+.btn {
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.65rem 0.9rem;
+  font-weight: 700;
+  line-height: 1;
+  transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+.btn-primary {
+  background: #151515;
+  color: #fffaf0;
+}
+
+.btn-secondary {
+  border-color: rgba(21, 21, 21, 0.12);
+  background: rgba(255, 250, 240, 0.76);
+  color: #151515;
+}
+
+.card {
+  border: 1px solid rgba(21, 21, 21, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 250, 240, 0.72);
+  box-shadow: 0 20px 60px rgba(24, 24, 24, 0.08);
+  backdrop-filter: blur(14px);
+}
